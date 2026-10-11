@@ -57,7 +57,12 @@ def render_for_agent(document: NormalizedDocument) -> str:
     parts = []
     for block in document.blocks:
         location = block.source_location
-        label = f'Page {location.page}' if location.page else f'DOCX block {location.block_index}'
+        if location.page is not None:
+            label = f'Page {location.page}'
+        elif location.block_index is not None:
+            label = f'Body block {location.block_index + 1}'
+        else:
+            label = f'Block {block.order + 1}'
         text = block_text(block)
         if block.type == 'heading':
             text = '#' * (block.level or 1) + ' ' + text

@@ -3,7 +3,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .adapters import default_registry
 from .config import Settings, get_settings
+from .extraction import AdapterRegistry
 from .ocr import OcrProvider, init_ocr
 from .pipeline import Pipeline
 from .routers import documents, health
@@ -16,6 +18,7 @@ def create_app(
     max_upload_bytes: int | None = None,
     cors_origins: list[str] | None = None,
     settings: Settings | None = None,
+    adapters: AdapterRegistry | None = None,
 ) -> FastAPI:
     cfg = settings or get_settings()
     if data_dir is not None:
@@ -30,7 +33,8 @@ def create_app(
         app.state.settings = cfg
         app.state.repository, app.state.files = init_storage(cfg.db_path, cfg.originals_dir)
         ocr_engine = ocr if ocr is not None else init_ocr()
-        app.state.pipeline = Pipeline(app.state.repository, app.state.files, ocr_engine)
+        registry = adapters if adapters is not None else default_registry(ocr_engine)
+        app.state.pipeline = Pipeline(app.state.repository, app.state.files, registry)
         yield
 
     app = FastAPI(title="Fletchers document workbench", lifespan=lifespan)

@@ -37,7 +37,7 @@ class DocumentService:
                 f"File exceeds the {self.max_upload_bytes // (1024 * 1024)} MiB upload limit.",
             )
 
-        name, content_type = validate_upload(file.filename or "", content)
+        name, content_type = validate_upload(file.filename or "", content, self.pipeline.adapters)
         document_id = str(uuid4())
 
         try:
