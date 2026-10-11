@@ -27,6 +27,14 @@ export const StructuredBlocksView: React.FC<StructuredBlocksViewProps> = ({ bloc
             <span>{block.type}</span>
           </div>
 
+          {block.provider && (
+            <p className="muted">
+              {block.provider.mocked
+                ? "This is a mock response for demonstration; no external service was called."
+                : "Extracted by"}{" "}
+              {block.provider.name} ({block.provider.version})
+            </p>
+          )}
           {block.type === "table" ? (
             <div className="table-wrap">
               <table>

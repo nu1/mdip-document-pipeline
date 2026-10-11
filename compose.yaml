@@ -3,6 +3,8 @@ services:
     build: ./backend
     ports:
       - "127.0.0.1:8000:8000"
+    environment:
+      AI_FALLBACK: ${AI_FALLBACK:-disabled}
     volumes:
       - backend-data:/data
     healthcheck:

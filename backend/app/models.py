@@ -10,6 +10,19 @@ class SourceLocation(BaseModel):
     bbox: tuple[float, float, float, float] | None = None
 
 
+class ProviderInfo(BaseModel):
+    name: str
+    version: str
+    mocked: bool
+
+
+class FallbackAttempt(BaseModel):
+    reason: str
+    provider: ProviderInfo
+    note: str | None = None
+    status: Literal['running', 'succeeded', 'no_content', 'fixture_not_found', 'timeout', 'invalid_response', 'failed'] = 'running'
+
+
 class Block(BaseModel):
     type: Literal['heading', 'paragraph', 'table']
     order: int
@@ -17,7 +30,8 @@ class Block(BaseModel):
     level: int | None = None
     rows: list[list[str]] = Field(default_factory=list)
     source_location: SourceLocation
-    extraction_method: Literal['native_docx', 'native_pdf', 'ocr', 'mock_ocr']
+    extraction_method: Literal['native_docx', 'native_pdf', 'ocr', 'mock_ocr', 'ai_extractor', 'mock_ai']
+    provider: ProviderInfo | None = None
 
 
 class PageSignals(BaseModel):
@@ -35,6 +49,7 @@ class RouteDecision(BaseModel):
     route: Literal['NATIVE', 'OCR', 'HYBRID', 'EMPTY_OR_UNKNOWN']
     reason: str
     signals: PageSignals
+    fallback: FallbackAttempt | None = None
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -64,9 +79,14 @@ def render_for_agent(document: NormalizedDocument) -> str:
         else:
             label = f'Block {block.order + 1}'
         text = block_text(block)
+        if block.extraction_method == 'mock_ai' or (block.provider and block.provider.mocked):
+            text = 'This is a mock response for demonstration; no external service was called.\n' + text
         if block.type == 'heading':
             text = '#' * (block.level or 1) + ' ' + text
         parts.append(f'[{label} · {block.extraction_method}]\n{text}')
+    for route in document.page_routes:
+        if route.fallback and route.fallback.note:
+            parts.append(f'[Page {route.page} · specialist fallback notice]\n{route.fallback.note}')
     return '\n\n'.join(parts)
 
 
@@ -74,6 +94,7 @@ def build_chunks(document: NormalizedDocument) -> list[dict]:
     return [
         {'chunk_index': index, 'text': block_text(block),
          'source_location': block.source_location.model_dump(exclude_none=True),
-         'metadata': {'block_order': block.order, 'type': block.type, 'extraction_method': block.extraction_method}}
+         'metadata': {'block_order': block.order, 'type': block.type, 'extraction_method': block.extraction_method,
+                      **({'provider': block.provider.model_dump()} if block.provider else {})}}
         for index, block in enumerate(b for b in document.blocks if block_text(b).strip())
     ]
