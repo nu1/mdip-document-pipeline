@@ -1,0 +1,7 @@
+# Allow only runtime source and dependency manifests into the build context.
+**
+!pyproject.toml
+!uv.lock
+!app/
+app/**
+!app/**/*.py
