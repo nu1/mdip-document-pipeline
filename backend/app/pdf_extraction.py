@@ -19,8 +19,8 @@ def inspect_page(page) -> PageSignals:
     visible_page = page.rect * page.derotation_matrix
 
     # 2. Extract words and filter to those within visible page bounds.
-    # Explicit flags prevent image extraction in text APIs; no pixels or OCR here.
-    raw_words = page.get_text('words', flags=pymupdf.TEXTFLAGS_WORDS & ~pymupdf.TEXT_PRESERVE_IMAGES)
+    # Word extraction excludes images by default. No pixels or OCR here.
+    raw_words = page.get_text('words')
     visible_words = []
     for w in raw_words:
         word_box = pymupdf.Rect(w[:4])
@@ -84,7 +84,7 @@ def inspect_page(page) -> PageSignals:
 
 
 def native_blocks(page, page_number: int, result: NormalizedDocument) -> None:
-    for item in page.get_text('blocks', sort=True, flags=pymupdf.TEXTFLAGS_BLOCKS & ~pymupdf.TEXT_PRESERVE_IMAGES):
+    for item in page.get_text('blocks', sort=True):
         if item[6] == 0 and item[4].strip():
             result.blocks.append(Block(type='paragraph', order=len(result.blocks), text=item[4].strip(),
                                        extraction_method='native_pdf', source_location=SourceLocation(page=page_number, bbox=tuple(item[:4]))))
