@@ -13,7 +13,7 @@ export const WorkspaceEmpty: React.FC = () => {
       <p className="eyebrow">DOCUMENT REVIEW</p>
       <h2>Select a document to review</h2>
       <p className="empty-intro">
-        Upload a source DOCX file or choose a saved document to inspect its
+        Upload a source DOCX or PDF file or choose a saved document to inspect its
         extracted content, structure, and processing details.
       </p>
 
@@ -28,15 +28,15 @@ export const WorkspaceEmpty: React.FC = () => {
         <div className="feature-card">
           <strong>Extracted content</strong>
           <p>
-            Review ordered headings, body paragraphs, and structured tables in
+            Review ordered headings, body paragraphs, and DOCX tables in
             tabbed block or readable text views.
           </p>
         </div>
         <div className="feature-card">
           <strong>Source locations</strong>
           <p>
-            Inspect sequential body block indices that map each element back to
-            its position in the source file.
+            Inspect sequential body block indices and page numbers that map each
+            element back to its position in the source file.
           </p>
         </div>
         <div className="feature-card">
@@ -49,7 +49,7 @@ export const WorkspaceEmpty: React.FC = () => {
       </div>
 
       <div className="steps" aria-label="Processing stages">
-        <span>01 Upload DOCX</span>
+        <span>01 Upload DOCX or PDF</span>
         <span>02 Ingest & extract</span>
         <span>03 Review content & citations</span>
       </div>

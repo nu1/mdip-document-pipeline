@@ -10,7 +10,7 @@ export const Intro: React.FC = () => {
         </p>
       </div>
       <span className="edition">
-        DOCX PIPELINE
+        DOCX & PDF PIPELINE
         <br />
         LOCAL STORAGE
       </span>
