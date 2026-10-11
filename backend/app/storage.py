@@ -15,6 +15,7 @@ class DocumentRepository(Protocol):
     def list_documents(self, limit: int, offset: int) -> list[dict]: ...
     def update(self, document_id: str, **changes) -> None: ...
     def replace_chunks(self, document_id: str, chunks: list[dict]) -> None: ...
+    def chunks(self, document_id: str, limit: int, offset: int) -> list[dict]: ...
 
 
 class FileStore(Protocol):
@@ -122,9 +123,10 @@ class SQLiteRepository:
                 (f"{document_id}:{c['chunk_index']}", document_id, c['chunk_index'], c['text'],
                  json.dumps(c['source_location']), json.dumps(c['metadata'])) for c in chunks])
 
-    def chunks(self, document_id: str) -> list[dict]:
+    def chunks(self, document_id: str, limit: int, offset: int) -> list[dict]:
         with self.connection() as db:
-            rows = db.execute('SELECT * FROM document_chunks WHERE document_id=? ORDER BY chunk_index', (document_id,))
+            rows = db.execute('''SELECT * FROM document_chunks WHERE document_id=?
+                ORDER BY chunk_index LIMIT ? OFFSET ?''', (document_id, limit, offset))
             return [{**dict(r), 'source_location': json.loads(r['source_location']),
                      'metadata': json.loads(r['metadata'])} for r in rows]
 

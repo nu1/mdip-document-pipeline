@@ -9,8 +9,10 @@ import { Workspace } from "./components/workspace/Workspace";
 import { useDocumentDetail } from "./hooks/useDocumentDetail";
 import { useDocuments } from "./hooks/useDocuments";
 import { useHealth } from "./hooks/useHealth";
+import { ForAgents } from "./components/agents/ForAgents";
 
 export function App() {
+  const [section, setSection] = useState<"documents" | "agents">("documents");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string>("");
@@ -32,6 +34,7 @@ export function App() {
   } = useDocumentDetail(selectedId);
 
   const handleUploadSuccess = (id: string) => {
+    setSection("documents");
     setSelectedId(id);
     setPage(0);
     setUploadError("");
@@ -45,7 +48,7 @@ export function App() {
 
   return (
     <div className="app">
-      <Header />
+      <Header section={section} onSectionChange={setSection} />
       <Intro />
 
       <ErrorBanner
@@ -72,13 +75,15 @@ export function App() {
           />
         </aside>
 
-        <Workspace
+        {section === "agents" ? (
+          <ForAgents key={selectedId ?? "none"} selectedId={selectedId} />
+        ) : <Workspace
           selectedId={selectedId}
           document={document}
           isLoading={isDocumentLoading}
           documentError={documentError}
           onDismissError={() => setDocumentError("")}
-        />
+        />}
       </main>
 
       <Footer />

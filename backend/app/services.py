@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi import BackgroundTasks, HTTPException, UploadFile
 from .models import NormalizedDocument, render_for_agent
 from .pipeline import Pipeline
-from .schemas import DocumentDetailResponse, DocumentListItem, UploadResponse
+from .schemas import DocumentChunksResponse, DocumentDetailResponse, DocumentListItem, UploadResponse
 from .storage import DocumentRepository, FileStore
 from .validation import validate_upload
 
@@ -75,4 +75,22 @@ class DocumentService:
         return DocumentDetailResponse(
             **record,
             rendered_text=rendered_text,
+        )
+
+    def read_document_chunks(self, document_id: str, offset: int = 0, limit: int = 5) -> DocumentChunksResponse:
+        record = self.repository.get(document_id)
+        if record is None:
+            raise HTTPException(404, "Document not found.")
+
+        # One extra persisted row distinguishes a full final batch from continuation.
+        rows = self.repository.chunks(document_id, limit + 1, offset)
+        return DocumentChunksResponse(
+            document_id=document_id,
+            filename=record['filename'],
+            status=record['status'],
+            processing_stage=record['processing_stage'],
+            warnings=(record['extracted_data'] or {}).get('warnings', []),
+            error_message=record['error_message'],
+            chunks=rows[:limit],
+            next_offset=offset + limit if len(rows) > limit else None,
         )

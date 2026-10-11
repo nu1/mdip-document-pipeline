@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import type { HealthResponse, PaginationParams, UploadResponse } from "../types/api";
-import type { DocumentItem } from "../types/document";
+import type { DocumentChunksResponse, DocumentItem } from "../types/document";
 
 /**
  * Fetches server health and configuration limits (e.g. max_upload_bytes).
@@ -32,6 +32,17 @@ export async function getDocument(
   return apiClient<DocumentItem>(`/documents/${encodeURIComponent(id)}`, {
     signal,
   });
+}
+
+export async function getDocumentChunks(
+  id: string,
+  { offset = 0, limit = 5 }: PaginationParams = {},
+  signal?: AbortSignal,
+): Promise<DocumentChunksResponse> {
+  return apiClient<DocumentChunksResponse>(
+    `/documents/${encodeURIComponent(id)}/chunks?offset=${offset}&limit=${limit}`,
+    { signal },
+  );
 }
 
 /**

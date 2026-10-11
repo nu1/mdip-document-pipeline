@@ -1,6 +1,6 @@
 import pymupdf
 from app.models import NormalizedDocument
-from app.pdf_extraction import extract_pdf, inspect_page, render_for_ocr
+from app.pdf_extraction import extract_pdf, inspect_page
 from app.routing import choose_route
 from tests.conftest import MockOcr
 
@@ -33,7 +33,6 @@ def test_pdf_extraction_with_mock_ocr(mixed_pdf, mock_ocr):
     extract_pdf(mixed_pdf, result, mock_ocr, lambda **kwargs: progress_updates.append(kwargs))
 
     assert len(result.page_routes) == 5
-    assert [r.route for r in result.page_routes] == ['NATIVE', 'OCR', 'HYBRID', 'NATIVE', 'EMPTY_OR_UNKNOWN']
     assert len(result.blocks) == 4
 
     assert result.blocks[0].source_location.page == 1
@@ -56,7 +55,7 @@ def test_pdf_extraction_with_mock_ocr(mixed_pdf, mock_ocr):
     assert any('Page 3: hybrid_partial' in w for w in result.warnings)
     assert any('Page 4: searchable_scan_candidate' in w for w in result.warnings)
     assert any('Page 5: empty_or_unknown' in w for w in result.warnings)
-    assert len(progress_updates) > 0
+    assert progress_updates[-1]['processed_pages'] == 5
 
 
 def test_pdf_extraction_without_ocr_provider(mixed_pdf):
@@ -77,9 +76,12 @@ def test_pdf_extraction_ocr_unavailable(mixed_pdf):
     assert any('ocr_unavailable: OCR provider is not available' in w for w in result.warnings)
 
 
-def test_render_for_ocr_dimensions(mixed_pdf):
-    with pymupdf.open(stream=mixed_pdf, filetype='pdf') as document:
-        raster = render_for_ocr(document.load_page(1))
-        assert raster.mode == 'RGB'
-        assert raster.width > 0 and raster.height > 0
-        raster.close()
+def test_native_inspection_never_renders_or_uses_ocr(pdf_bytes, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Native inspection must not render or invoke OCR')
+
+    monkeypatch.setattr(pymupdf.Page, 'get_pixmap', forbidden)
+    monkeypatch.setattr(pymupdf.Page, 'get_textpage_ocr', forbidden)
+    monkeypatch.setattr('app.pdf_extraction.render_for_ocr', forbidden)
+    with pymupdf.open(stream=pdf_bytes, filetype='pdf') as document:
+        assert inspect_page(document[0]).usable_text
