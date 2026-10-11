@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
 from ..dependencies import get_document_service
-from ..schemas import DocumentDetailResponse, DocumentListItem, UploadResponse
+from ..schemas import DocumentChunksResponse, DocumentDetailResponse, DocumentListItem, UploadResponse
 from ..services import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -30,3 +30,13 @@ def get_document(
     service: DocumentService = Depends(get_document_service),
 ):
     return service.get_document(document_id)
+
+
+@router.get("/{document_id}/chunks", response_model=DocumentChunksResponse, response_model_exclude_unset=True)
+def read_document_chunks(
+    document_id: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(5, ge=1, le=20),
+    service: DocumentService = Depends(get_document_service),
+):
+    return service.read_document_chunks(document_id, offset, limit)

@@ -1,5 +1,6 @@
 from typing import Any
 from pydantic import BaseModel, Field
+from .models import SourceLocation
 
 
 class HealthResponse(BaseModel):
@@ -38,3 +39,23 @@ class DocumentDetailResponse(BaseModel):
     updated_at: str
     extracted_data: dict[str, Any] | None = None
     rendered_text: str = ""
+
+
+class PersistedChunk(BaseModel):
+    id: str
+    document_id: str
+    chunk_index: int
+    text: str
+    source_location: SourceLocation
+    metadata: dict[str, Any]
+
+
+class DocumentChunksResponse(BaseModel):
+    document_id: str
+    filename: str
+    status: str
+    processing_stage: str
+    warnings: list[str]
+    error_message: str | None
+    chunks: list[PersistedChunk]
+    next_offset: int | None

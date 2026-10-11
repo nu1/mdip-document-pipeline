@@ -2,6 +2,7 @@ export type Location = {
   page?: number;
   block_index?: number;
   paragraph_index?: number;
+  bbox?: [number, number, number, number];
 };
 
 export type BlockType = "heading" | "paragraph" | "table";
@@ -49,4 +50,22 @@ export type DocumentItem = {
   error_message: string | null;
   rendered_text?: string;
   extracted_data?: ExtractionData | null;
+};
+
+export type DocumentChunksResponse = {
+  document_id: string;
+  filename: string;
+  status: DocumentStatus;
+  processing_stage: string;
+  warnings: string[];
+  error_message: string | null;
+  chunks: {
+    id: string;
+    document_id: string;
+    chunk_index: number;
+    text: string;
+    source_location: Location;
+    metadata: { extraction_method: string; block_order: number; type: BlockType };
+  }[];
+  next_offset: number | null;
 };
