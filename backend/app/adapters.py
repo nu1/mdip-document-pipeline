@@ -8,6 +8,7 @@ from docx import Document
 from .docx_extraction import extract_docx
 from .extraction import AdapterRegistry, DocumentTooLarge, ProgressCallback
 from .models import NormalizedDocument
+from .fallback import FallbackProvider
 from .ocr import OcrProvider
 from .pdf_extraction import PDF_LOCK, extract_pdf
 
@@ -18,8 +19,9 @@ class PdfAdapter:
     extensions = ('.pdf',)
     content_type = 'application/pdf'
 
-    def __init__(self, ocr: OcrProvider | None = None):
+    def __init__(self, ocr: OcrProvider | None = None, fallback: FallbackProvider | None = None):
         self.ocr = ocr
+        self.fallback = fallback
 
     def validate(self, content: bytes) -> None:
         if not content.startswith(b'%PDF-'):
@@ -29,7 +31,7 @@ class PdfAdapter:
                 raise ValueError('Encrypted or empty PDF')
 
     def extract(self, content: bytes, result: NormalizedDocument, progress: ProgressCallback) -> None:
-        extract_pdf(content, result, self.ocr, progress)
+        extract_pdf(content, result, self.ocr, progress, self.fallback)
 
 
 class DocxAdapter:
@@ -51,8 +53,8 @@ class DocxAdapter:
         extract_docx(content, result)
 
 
-def default_registry(ocr: OcrProvider | None = None) -> AdapterRegistry:
+def default_registry(ocr: OcrProvider | None = None, fallback: FallbackProvider | None = None) -> AdapterRegistry:
     return AdapterRegistry(
-        (PdfAdapter(ocr), DocxAdapter()),
+        (PdfAdapter(ocr, fallback), DocxAdapter()),
         aliases={'docx': DocxAdapter.content_type},  # Preserve legacy stored type support.
     )

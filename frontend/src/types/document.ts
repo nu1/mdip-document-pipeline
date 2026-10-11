@@ -7,6 +7,8 @@ export type Location = {
 
 export type BlockType = "heading" | "paragraph" | "table";
 
+export type ProviderInfo = { name: string; version: string; mocked: boolean };
+
 export type Block = {
   type: BlockType;
   order: number;
@@ -15,6 +17,7 @@ export type Block = {
   rows?: string[][];
   source_location: Location;
   extraction_method: string;
+  provider?: ProviderInfo;
 };
 
 export type PageRoute = {
@@ -22,6 +25,7 @@ export type PageRoute = {
   route: string;
   reason: string;
   signals: Record<string, unknown>;
+  fallback?: { reason: string; provider: ProviderInfo; status: string; note?: string };
   warnings: string[];
 };
 

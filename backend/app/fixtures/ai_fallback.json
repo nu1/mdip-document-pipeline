@@ -1,0 +1,25 @@
+{
+  "document_sha256": "cfdfb8ea63714974ab30dd685b8bca0ed00dfabf5fb078380b9693862602d12d",
+  "page": 2,
+  "response": {
+    "blocks": [
+      {
+        "type": "table",
+        "rows": [
+          [
+            "Label",
+            "Value"
+          ],
+          [
+            "TOTAL",
+            "125"
+          ]
+        ]
+      }
+    ]
+  },
+  "default_response": {
+    "blocks": [],
+    "note": "This is a mock response for demonstration; no external service was called. Specialist fallback received page {page} (trigger: {reason}). A production provider would attempt extraction here; this generic mock returns no extracted document content."
+  }
+}

@@ -1,16 +1,21 @@
 """Native inspection → pure routing → execution. Only OCR execution renders."""
 from collections.abc import Callable
 import math
+import hashlib
+import logging
 import unicodedata
 from threading import RLock
 import pymupdf
 from PIL import Image
-from .models import Block, NormalizedDocument, PageSignals, SourceLocation
+from pydantic import ValidationError
+from .models import Block, FallbackAttempt, NormalizedDocument, PageSignals, SourceLocation
+from .fallback import FallbackProvider, FallbackRequest, FallbackResponse
 from .ocr import OcrProvider
 from .routing import choose_route, SUBSTANTIAL_IMAGE_RATIO, MIN_TEXT_QUALITY, MIN_IMAGE_TEXT_ENVELOPE
 
 # Shared with upload validation to serialize all MuPDF access in this process.
 PDF_LOCK = RLock()
+logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[..., None]
 
@@ -97,13 +102,55 @@ def render_for_ocr(page) -> Image.Image:
     return Image.frombytes('RGB', (pixmap.width, pixmap.height), pixmap.samples)
 
 
+def has_content_marks(page) -> bool:
+    """Cheap execution-time evidence, not proof that a page contains readable text."""
+    visible = page.rect * page.derotation_matrix
+    return any(kind != 'ignore-text' and (pymupdf.Rect(box) & visible).get_area() > 0
+               for kind, box in page.get_bboxlog())
+
+
+def run_fallback(document, index, document_hash, decision, result, fallback, reason, progress):
+    attempt = FallbackAttempt(reason=reason, provider=fallback.info)
+    decision.fallback = attempt
+    progress(processing_stage='ai_fallback', extracted_data=result.model_dump(exclude_none=True))
+    try:
+        # Keep original page numbering in canonical data; the service sees one page.
+        with PDF_LOCK, pymupdf.open() as single_page:
+            single_page.insert_pdf(document, from_page=index, to_page=index)
+            page_pdf = single_page.tobytes()
+        request = FallbackRequest(page_pdf, document_hash, index + 1, reason)
+        response = FallbackResponse.model_validate(fallback.extract(request))
+        blocks = [Block(type=item.type, order=len(result.blocks) + offset,
+                        text=item.text, rows=item.rows,
+                        extraction_method='mock_ai' if fallback.info.mocked else 'ai_extractor',
+                        provider=fallback.info, source_location=SourceLocation(page=index + 1))
+                  for offset, item in enumerate(response.blocks)]
+        result.blocks.extend(blocks)
+        attempt.status = 'succeeded' if blocks else 'no_content'
+        attempt.note = response.note
+    except TimeoutError:
+        attempt.status = 'timeout'
+    except ValidationError:
+        attempt.status = 'invalid_response'
+    except Exception:
+        logger.exception('Specialist extraction failed on page %s', index + 1)
+        attempt.status = 'failed'
+    decision.warnings.append(f'ai_fallback_{attempt.status}: trigger={reason}')
+    if attempt.note:
+        decision.warnings.append(f'ai_fallback_note: {attempt.note}')
+    if fallback.info.mocked:
+        decision.warnings.append('mock_ai: demonstration response only; no external service or AI model was called')
+
+
 def extract_pdf(
     content: bytes,
     result: NormalizedDocument,
     ocr: OcrProvider | None,
     progress: ProgressCallback,
+    fallback: FallbackProvider | None = None,
 ) -> None:
     provider = ocr
+    document_hash = hashlib.sha256(content).hexdigest() if fallback else None
     with PDF_LOCK:
         document = pymupdf.open(stream=content, filetype='pdf')
         total = document.page_count
@@ -116,30 +163,50 @@ def extract_pdf(
                 decision = choose_route(inspect_page(page), index + 1)
             result.page_routes.append(decision)
             progress(processing_stage='extracting')
+            fallback_reason = None
             if decision.route in {'NATIVE', 'HYBRID'}:
+                previous_count = len(result.blocks)
                 with PDF_LOCK:
                     native_blocks(page, index + 1, result)
+                if len(result.blocks) == previous_count:
+                    fallback_reason = 'native_no_text'
+                    decision.warnings.append('native_no_text: native extraction returned no blocks')
             elif decision.route == 'OCR':
-                if provider is None:
-                    decision.warnings.append('ocr_unavailable: no OCR provider configured to extract this page')
-                elif not provider.available():
-                    decision.warnings.append('ocr_unavailable: OCR provider is not available to extract this page')
-                else:
-                    progress(processing_stage='ocr')
-                    with PDF_LOCK:
-                        image = render_for_ocr(page)
-                    try:
-                        text = provider.recognize(image).strip()
-                    finally:
-                        image.close()
-                    if provider.method == 'mock_ocr':
-                        decision.warnings.append('mock_ocr: deterministic test fixture, not real recognition')
-                    if text:
-                        result.blocks.append(Block(type='paragraph', order=len(result.blocks), text=text,
-                                                   extraction_method=provider.method,
-                                                   source_location=SourceLocation(page=index + 1)))
+                # Expected provider failures are local to this page; later pages still run.
+                try:
+                    if provider is None:
+                        fallback_reason = 'ocr_unavailable'
+                        decision.warnings.append('ocr_unavailable: no OCR provider configured to extract this page')
+                    elif not provider.available():
+                        fallback_reason = 'ocr_unavailable'
+                        decision.warnings.append('ocr_unavailable: OCR provider is not available to extract this page')
                     else:
-                        decision.warnings.append('ocr_no_text: no text recognised; image may contain no text')
+                        progress(processing_stage='ocr')
+                        with PDF_LOCK:
+                            image = render_for_ocr(page)
+                        try:
+                            text = provider.recognize(image).strip()
+                        finally:
+                            image.close()
+                        if provider.method == 'mock_ocr':
+                            decision.warnings.append('mock_ocr: deterministic test fixture, not real recognition')
+                        if text:
+                            result.blocks.append(Block(type='paragraph', order=len(result.blocks), text=text,
+                                                       extraction_method=provider.method,
+                                                       source_location=SourceLocation(page=index + 1)))
+                        else:
+                            fallback_reason = 'ocr_no_text'
+                            decision.warnings.append('ocr_no_text: no text recognised; image may contain no text')
+                except (RuntimeError, OSError, ValueError):
+                    logger.exception('Local OCR failed on page %s', index + 1)
+                    fallback_reason = 'ocr_failed'
+                    decision.warnings.append('ocr_failed: local OCR failed; check the server log')
+            elif fallback is not None:
+                with PDF_LOCK:
+                    if has_content_marks(page):
+                        fallback_reason = 'unknown_with_content'
+            if fallback is not None and fallback_reason:
+                run_fallback(document, index, document_hash, decision, result, fallback, fallback_reason, progress)
             result.warnings.extend(f'Page {index + 1}: {warning}' for warning in decision.warnings)
             progress(processed_pages=index + 1, extracted_data=result.model_dump(exclude_none=True))
     finally:

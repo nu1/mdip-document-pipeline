@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .adapters import default_registry
 from .config import Settings, get_settings
 from .extraction import AdapterRegistry
+from .fallback import FallbackProvider, MockAiExtractor
 from .ocr import OcrProvider, init_ocr
 from .pipeline import Pipeline
 from .routers import documents, health
@@ -19,6 +20,7 @@ def create_app(
     cors_origins: list[str] | None = None,
     settings: Settings | None = None,
     adapters: AdapterRegistry | None = None,
+    fallback: FallbackProvider | None = None,
 ) -> FastAPI:
     cfg = settings or get_settings()
     if data_dir is not None:
@@ -33,7 +35,8 @@ def create_app(
         app.state.settings = cfg
         app.state.repository, app.state.files = init_storage(cfg.db_path, cfg.originals_dir)
         ocr_engine = ocr if ocr is not None else init_ocr()
-        registry = adapters if adapters is not None else default_registry(ocr_engine)
+        fallback_engine = fallback if fallback is not None else (MockAiExtractor() if cfg.ai_fallback == 'mock' else None)
+        registry = adapters if adapters is not None else default_registry(ocr_engine, fallback_engine)
         app.state.pipeline = Pipeline(app.state.repository, app.state.files, registry)
         yield
 

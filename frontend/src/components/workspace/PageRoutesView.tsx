@@ -22,8 +22,21 @@ export const PageRoutesView: React.FC<PageRoutesViewProps> = ({ routes }) => {
             <span>Page {route.page}</span>
             <Badge status={route.route} />
             <span>{prettyText(route.reason)}</span>
+            {route.fallback && (
+              <span>AI fallback{route.fallback.provider.mocked ? " (mock)" : ""}: {prettyText(route.fallback.status)}</span>
+            )}
           </summary>
-          {(route.warnings ?? []).map((warning, index) => (
+          {route.fallback && (
+            <p>
+              Fallback reason: {prettyText(route.fallback.reason)}. Provider: {route.fallback.provider.name}
+              {" "}({route.fallback.provider.version}).
+              {route.fallback.provider.mocked && " Mock demonstration; no external service was called."}
+            </p>
+          )}
+          {route.fallback?.note && <p>{route.fallback.note}</p>}
+          {(route.warnings ?? [])
+            .filter((warning) => !route.fallback?.note || !warning.startsWith("ai_fallback_note:"))
+            .map((warning, index) => (
             <p className="warning-text" key={index}>
               {prettyText(warning)}
             </p>

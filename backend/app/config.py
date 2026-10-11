@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +13,7 @@ class Settings(BaseSettings):
     )
 
     data_dir: Path = Path("data")
+    ai_fallback: Literal['disabled', 'mock'] = 'disabled'
     max_upload_bytes: int = 10 * 1024 * 1024
     cors_origins: list[str] | str = Field(
         default=["http://localhost:5173", "http://127.0.0.1:5173"]
