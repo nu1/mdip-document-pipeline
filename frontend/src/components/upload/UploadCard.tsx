@@ -22,8 +22,8 @@ export const UploadCard: React.FC<UploadCardProps> = ({
   const handleUpload = async (file?: File) => {
     if (!file) return;
 
-    if (!/\.(docx)$/i.test(file.name)) {
-      onError("Please select a DOCX file.");
+    if (!/\.(docx|pdf)$/i.test(file.name)) {
+      onError("Please select a DOCX or PDF file.");
       return;
     }
 
@@ -82,25 +82,25 @@ export const UploadCard: React.FC<UploadCardProps> = ({
       </div>
       <h2>Upload document</h2>
       <p>
-        Extract ordered headings, body text and tables with source block locations.
+        Extract ordered headings, body text, and DOCX tables with source locations.
       </p>
       <input
         ref={fileInputRef}
         id="file-upload-input"
         type="file"
-        accept=".docx"
+        accept=".docx,.pdf"
         disabled={uploading}
         onChange={(e) => handleUpload(e.target.files?.[0])}
-        aria-label="Upload DOCX document"
+        aria-label="Upload DOCX or PDF document"
       />
       <label
         htmlFor="file-upload-input"
         className={`button ${uploading ? "disabled" : ""}`}
       >
-        <span>{uploading ? "Uploading…" : "Choose DOCX file"}</span>
+        <span>{uploading ? "Uploading…" : "Choose DOCX or PDF"}</span>
         <span aria-hidden="true">↗</span>
       </label>
-      <small>DOCX · up to {formatFileSize(maxBytes)}</small>
+      <small>DOCX or PDF · up to {formatFileSize(maxBytes)}</small>
     </section>
   );
 };
