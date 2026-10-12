@@ -85,3 +85,7 @@ Tests use temporary storage and labelled mocks; no paid provider or Tesseract in
 - Specialist fallback makes no network/model calls and does not establish extraction accuracy. Its demo output is mocked.
 - Background tasks are not durable; interrupted jobs fail on restart and require re-upload. Completed results persist.
 - Chunk retrieval is sequential; batch size does not guarantee a model token budget. There is no authentication or production queue.
+
+---
+
+<sub>**Author:** Nuwan Narasinghe · [nuwan@devage.co.uk](mailto:nuwan@devage.co.uk) · [LinkedIn](https://www.linkedin.com/in/nuwan-nara) · [GitHub](https://github.com/nu1)</sub>
