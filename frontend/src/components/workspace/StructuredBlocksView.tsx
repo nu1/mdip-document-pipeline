@@ -21,8 +21,12 @@ export const StructuredBlocksView: React.FC<StructuredBlocksViewProps> = ({ bloc
         <article className="block" key={block.order}>
           <div className="block-label">
             <span>
-              {formatSourceLocation(block.source_location)} ·{" "}
-              {prettyText(block.extraction_method)}
+              <span className="block-order">Block {block.order + 1}</span>
+              {" · "}
+              <span>
+                {formatSourceLocation(block.source_location)} ·{" "}
+                {prettyText(block.extraction_method)}
+              </span>
             </span>
             <span>{block.type}</span>
           </div>

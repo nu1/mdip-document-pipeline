@@ -1,38 +1,24 @@
-Local DOCX upload, ordered extraction, persisted processing status and results.
+# Fletchers AI · Document workbench
+
+A local PDF/DOCX extraction app: upload documents, follow processing status, inspect ordered content and retrieve persisted results. No paid services are required.
+
+- **Page-aware PDF extraction:** native inspection selects each page's route; Tesseract handles scanned pages, with explicit warnings for partial output.
+- **DOCX structure:** headings, paragraphs and tables retain their body order.
+- **For Agents:** preview persisted, source-aware chunks through REST. No model is connected.
+- **Specialist fallback (mocked):** an optional provider boundary demonstrates escalation and response mapping, with clearly labelled fixture output.
+- **Format adapters:** PDF and DOCX share a validation/extraction contract, providing an extension point for additional formats. Only PDF and DOCX are enabled.
 
 ## Run
 
-### 1. Backend
+Requires Docker with Compose for the backend and Node/npm for the frontend. Node 22.22.1 was used for verification.
 
-From the `backend` directory (managed with [uv](https://docs.astral.sh/uv/)):
-
-```sh
-cd backend
-uv sync
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-### 2. Frontend
-
-In a second terminal:
-
-```sh
-cd frontend
-npm install # or npm ci
-npm run dev
-```
-
-Open http://127.0.0.1:5173. Use one backend process. Original uploads and SQLite results live under `data/`.
-
-### Optional Docker backend
-
-Requires Docker with Compose. Instead of starting the native backend, run from the repository root:
+From the repository root:
 
 ```sh
 docker compose up --build
 ```
 
-In another terminal, run the frontend locally:
+In a second terminal, from the repository root:
 
 ```sh
 cd frontend
@@ -40,34 +26,60 @@ npm ci
 npm run dev
 ```
 
-The image includes Python 3.12 and real Tesseract with English language data; neither needs to be installed on the host. The backend listens at `http://127.0.0.1:8000`, using the existing frontend proxy. SQLite results (`documents.db`) and original uploads (`originals/`) persist under `/data` in the Compose-managed `backend-data` named volume.
+Open the [app](http://127.0.0.1:5173). The frontend proxies requests to port 8000; [Swagger / API documentation](http://127.0.0.1:8000/docs) provides endpoints and request/response schemas.
 
-From the repository root, `docker compose down` stops and removes the service while retaining the volume. Explicitly removing it with `docker compose down --volumes` deletes its stored documents and results. The native uv workflow above remains available. Containerisation does not make background tasks durable: interrupted jobs are still marked failed on restart and must be uploaded again.
+Docker includes Python 3.12 and Tesseract with English language data. Uploads and SQLite results persist in the `backend-data` volume. `docker compose down` retains this data; adding `--volumes` deletes it.
+
+### Native backend alternative
+
+With [uv](https://docs.astral.sh/uv/) installed, instead of Docker:
+
+```sh
+cd backend
+uv sync --locked
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+The project selects Python 3.12 and requires 3.12+. Real OCR needs Tesseract with English data: `brew install tesseract` on macOS, or `sudo apt install tesseract-ocr tesseract-ocr-eng` on Debian/Ubuntu. Check with `tesseract --list-langs`. Missing OCR produces an explicit warning; specialist fallback is disabled by default.
+
+Native data defaults to `backend/data/` with these commands. Set `DATA_DIR` to change it; `MAX_UPLOAD_BYTES` defaults to 10 MiB. Run one backend process.
+
+## Try the demos
+
+The synthetic [demo files](demo/) are ready to upload.
+
+| File | What to inspect |
+|---|---|
+| [agreement.docx](demo/agreement.docx) | Heading → paragraph → table → paragraph, with body positions. |
+| [digital.pdf](demo/digital.pdf) | Native extraction and PDF page provenance. |
+| [scan.pdf](demo/scan.pdf) | OCR routing and recognised invoice text, or an OCR-unavailable warning. |
+| [mixed.pdf](demo/mixed.pdf) | Five pages: NATIVE, OCR, HYBRID, searchable-scan NATIVE and EMPTY_OR_UNKNOWN. |
+| [ai-fallback.pdf](demo/ai-fallback.pdf) | Optional mock fallback: native page, vector-stroke page with a fixture table, then blank page. Enable it using the [fallback guide](docs/specialist-fallback.md). |
+
+Switch between structured blocks and readable text, inspect route decisions and warnings, then reload to retrieve saved results. Small files finish quickly; progress reflects actual stages and page counts.
+
+Select a document and open **For Agents** to preview chunks and copy requests/responses. The [agent guide](docs/agent-integration.md) includes a runnable Python pagination example. The [adapter guide](docs/document-adapters.md) explains how another format joins the pipeline.
 
 ## Verify
 
 ```sh
-# Backend tests
+# From the repository root:
 cd backend
+uv sync --locked
 uv run pytest tests -q
-
-# Frontend build check
 cd ../frontend
+npm ci
+npm test
 npm run build
+npm run lint
 ```
 
-DOCX extraction preserves headings, paragraphs and table cells in body order. Background tasks are local and not durable; interrupted jobs are marked failed on restart.
+Tests use temporary storage and labelled mocks; no paid provider or Tesseract installation is required.
 
-## Supporting more document formats
+## Limits
 
-Each format implements the `DocumentAdapter` protocol in `backend/app/extraction.py`: supported extensions, a canonical MIME type, content validation, and extraction into `NormalizedDocument`. `PdfAdapter` and `DocxAdapter` in `backend/app/adapters.py` wrap the existing parsers. The PDF adapter receives its OCR provider and keeps page-level native/OCR/hybrid routing inside the PDF implementation.
-
-The app creates one explicit adapter registry and shares it between upload validation and the pipeline. Uploads select an adapter by extension and validate the actual bytes; client MIME types are not trusted. Processing selects the adapter by the recorded MIME type. Unknown formats are rejected, and duplicate registrations fail at startup. Filename sanitisation, upload limits and HTTP errors remain in the upload layer; status updates, partial-output retention, persistence and derived chunks remain in the common pipeline. Adapters append blocks incrementally so an extraction failure can preserve available results.
-
-To add a format such as `.txt`:
-
-1. Implement an adapter with an explicit decoding policy, content checks and ordered canonical blocks; register it alongside PDF and DOCX in `default_registry()`.
-2. Add its extraction-method value to the model's explicit allowed values. Extend source locations if needed, such as line/character offsets for text or sheet/cell positions for spreadsheets, and update their display formatting.
-3. Update the frontend's accepted formats and upload copy, then add format-specific fixtures and tests. The pipeline, persistence and chunk-generation code can be reused for formats that map to the existing block types.
-
-The registry is deliberately explicit and local; there is no dynamic plugin loading. `backend/tests/test_adapters.py` registers a third, test-only format and verifies validation, extraction, warnings, persistence, readable text and chunk retrieval through the existing API. It also checks partial results after adapter failure. Only PDF and DOCX are enabled in the application by default.
+- Local PDF extraction does not reconstruct headings, tables or complex layouts. HYBRID preserves native text and warns about unprocessed images; searchable-scan text is not verified against the image.
+- DOCX covers top-level body content. OCR is English Tesseract without deskew or layout reconstruction.
+- Specialist fallback makes no network/model calls and does not establish extraction accuracy. Its demo output is mocked.
+- Background tasks are not durable; interrupted jobs fail on restart and require re-upload. Completed results persist.
+- Chunk retrieval is sequential; batch size does not guarantee a model token budget. There is no authentication or production queue.

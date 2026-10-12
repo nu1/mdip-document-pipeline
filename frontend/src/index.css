@@ -602,10 +602,15 @@ aside {
   margin-bottom: 12px;
 }
 
-.block-label span:last-child {
+.block-label > span:last-child {
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 600;
+}
+
+.block-order {
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .block h3 {
