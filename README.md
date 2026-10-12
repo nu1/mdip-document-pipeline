@@ -1,6 +1,8 @@
-# Fletchers AI · Document workbench
+# Fletchers AI · Document pipeline
 
 A local PDF/DOCX extraction app: upload documents, follow processing status, inspect ordered content and retrieve persisted results. No paid services are required.
+
+![Document Pipeline UI](docs/fe-preview.jpg)
 
 - **Page-aware PDF extraction:** native inspection selects each page's route; Tesseract handles scanned pages, with explicit warnings for partial output.
 - **DOCX structure:** headings, paragraphs and tables retain their body order.

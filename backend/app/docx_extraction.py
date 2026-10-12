@@ -18,7 +18,8 @@ def extract_docx(content: bytes, result: NormalizedDocument) -> None:
             text = paragraph.text
             if not text.strip():
                 continue
-            match = re.fullmatch(r'Heading (\d+)', paragraph.style.name if paragraph.style else '')
+            style_name = paragraph.style.name if paragraph.style else None
+            match = re.fullmatch(r'Heading (\d+)', style_name) if style_name else None
             result.blocks.append(Block(type='heading' if match else 'paragraph', order=len(result.blocks),
                                        text=text, level=int(match[1]) if match else None,
                                        source_location=location, extraction_method='native_docx'))

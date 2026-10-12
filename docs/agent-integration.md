@@ -1,15 +1,19 @@
-# Agent integration
+# Agent Integration
 
-The UI and Python tools retrieve already-extracted content through REST. They do not reprocess documents or access SQLite directly. No model or agent SDK is required; a host application can register the functions and their JSON argument schemas from [examples/agent_tools.py](../examples/agent_tools.py).
+External AI agents and host applications interact with extracted documents via REST endpoints. The service provides deterministic, pagination-friendly endpoints designed to be registered directly as LLM tool definitions (functions).
 
-## Callable tools
+Reference schemas and standard-library Python implementations are available in [`examples/agent_tools.py`](../examples/agent_tools.py).
 
-| Function | REST request | Arguments |
-|---|---|---|
-| `list_documents` | `GET /documents` | `limit=20` (1–100), `offset=0` (non-negative). |
-| `read_document_chunks` | `GET /documents/{document_id}/chunks` | Required `document_id`, `limit=5` (1–20), `offset=0` (non-negative). |
+## Available Tools
 
-Document listing returns a newest-first array of summaries, including IDs, filenames and processing states. Chunk retrieval returns:
+| Tool Name | Endpoint | Parameters | Purpose |
+|---|---|---|---|
+| `list_documents` | `GET /documents` | `limit` (1–100, default: 20)<br>`offset` (default: 0) | Lists uploaded documents with status and metadata. |
+| `read_document_chunks` | `GET /documents/{id}/chunks` | `document_id` (required)<br>`limit` (1–20, default: 5)<br>`offset` (default: 0) | Reads ordered document chunks with source provenance. |
+
+## Chunk Schema & Provenance
+
+When an agent calls `read_document_chunks`, it receives structured chunks preserving visual reading order and source location:
 
 ```json
 {
@@ -18,14 +22,13 @@ Document listing returns a newest-first array of summaries, including IDs, filen
   "status": "completed",
   "processing_stage": "done",
   "warnings": [],
-  "error_message": null,
   "chunks": [
     {
       "id": "example-id:0",
       "document_id": "example-id",
       "chunk_index": 0,
       "text": "Supplier agreement",
-      "source_location": {"block_index": 0, "paragraph_index": 0},
+      "source_location": { "block_index": 0, "paragraph_index": 0 },
       "metadata": {
         "block_order": 0,
         "type": "heading",
@@ -33,25 +36,40 @@ Document listing returns a newest-first array of summaries, including IDs, filen
       }
     }
   ],
-  "next_offset": null
+  "next_offset": 5
 }
 ```
 
-Chunks retain their original order and source locations. PDF pages are 1-based; DOCX body indexes are 0-based, with no invented page numbers. Extraction methods distinguish native PDF, native DOCX and OCR; `mock_ocr` is reserved for labelled test fixtures. Optional specialist output uses `mock_ai` for the bundled mock or `ai_extractor` for a real provider. Provider metadata is retained in `metadata.provider`; `mocked: true` and document warnings identify demonstration output. Generic mock acknowledgements create no content chunks. See the [specialist fallback guide](specialist-fallback.md).
+### Key Fields for Agents
 
-Pass `next_offset` into the next call until it is `null`. This means no further persisted chunks, not that extraction succeeded. Queued, processing and failed documents report their actual state and any available partial content. Check status, warnings and errors before using the text. Invalid pagination returns HTTP 422; missing documents return 404. Interactive response schemas are available at `/docs` on the backend.
+- **`source_location`**: Exact origin within the document (1-based `page` and bounding boxes for PDFs; 0-based `block_index` for DOCX).
+- **`metadata.extraction_method`**: Identifies how the text was extracted (`native_pdf`, `native_docx`, `ocr`, or `mock_ai`).
+- **`warnings`**: Quality flags from extraction (e.g., degraded scans or partial image extractions).
 
-## Run the example
+## Pagination Pattern
 
-With the backend running, from the repository root:
+Chunk retrieval uses cursor-based offsets:
+
+1. Start with `offset=0`.
+2. Inspect the returned `next_offset`.
+3. If `next_offset` is not `null`, pass it as the `offset` in the next call to fetch the next batch.
+4. When `next_offset` is `null`, all chunks for the document have been consumed.
+
+## Running the Example Client
+
+A runnable Python script demonstrating tool registration and chunk pagination is provided in `examples/`:
 
 ```sh
+# List documents and read the first document:
 python3 examples/agent_tools.py --limit 2
-python3 examples/agent_tools.py --document-id DOCUMENT_ID --limit 2
+
+# Read chunks for a specific document:
+python3 examples/agent_tools.py --document-id DOCUMENT_ID --limit 5
 ```
 
-The first command lists documents and reads the first one; the second selects an explicit ID. The example follows continuation for a second batch when present. It calls tools in a fixed sequence rather than demonstrating autonomous model selection.
+By default, the script connects to `http://127.0.0.1:8000`. Set `MDIP_API_BASE_URL` to point to an alternate host.
 
-The API defaults to `http://127.0.0.1:8000`; set `MDIP_API_BASE_URL` to override it. The example uses Python's standard library. Imported HTTP failures retain their status and response body; connection failures propagate to the host.
+## LLM Host Considerations
 
-This interface supports sequential reading, not relevance-ranked retrieval. Individual chunks can be long, so the host must enforce its own token/context budget. Extraction warnings remain relevant to any generated answer.
+- **Context Windows**: Chunks are sequential content blocks, not semantic summaries. Agents should paginate through chunks according to their available context/token budget.
+- **Status & Warnings**: Always inspect document `status` and `warnings` before interpreting chunks. Incomplete or failed documents may only return partial content.
