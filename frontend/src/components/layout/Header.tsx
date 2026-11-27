@@ -8,8 +8,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ section, onSectionChange }) => {
   return (
     <header>
-      <a className="brand" href="/" aria-label="Fletchers AI Home">
-        fletchers<span> / ai</span>
+      <a className="brand" href="/" aria-label="MDIP Home">
+        mdip<span> / docs</span>
       </a>
       <nav className="header-nav" aria-label="Workspace sections">
         <button aria-pressed={section === "documents"} onClick={() => onSectionChange("documents")}>

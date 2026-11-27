@@ -70,7 +70,7 @@ def test_mixed_pdf_upload_and_e2e_pipeline(tmp_path, mixed_pdf, mock_ocr):
 
         assert '[Page 1 · native_pdf]' in result['rendered_text']
         assert '[Page 2 · mock_ocr]' in result['rendered_text']
-        assert 'FLETCHERS SCAN TEST' in result['rendered_text']
+        assert 'SCANNED INVOICE SAMPLE' in result['rendered_text']
 
         repository = SQLiteRepository(tmp_path / 'documents.db')
         chunks = repository.chunks(document_id, limit=20, offset=0)

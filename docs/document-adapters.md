@@ -35,7 +35,7 @@ To add support for a new document format:
 
 1. **Implement `DocumentAdapter`**: Create an adapter class defining `extensions`, `content_type`, byte validation, and block extraction.
 2. **Register the adapter**: Add the instance to `default_registry()` in `backend/app/adapters.py`.
-3. **Frontend updates**: Add the extension to accepted file types in `frontend/src/components/library/UploadZone.tsx`.
+3. **Frontend updates**: Add the extension to accepted file types in [`frontend/src/components/upload/UploadCard.tsx`](../frontend/src/components/upload/UploadCard.tsx).
 4. **Tests**: Add unit tests verifying byte validation, extraction output, and error handling.
 
-Shared capabilities—such as progress tracking, SQLite persistence, and agent chunk retrieval (`/api/documents/{id}/chunks`)—work automatically without modification.
+Shared capabilities—such as progress tracking, SQLite persistence, and agent chunk retrieval (`/documents/{id}/chunks`)—work automatically without modification.

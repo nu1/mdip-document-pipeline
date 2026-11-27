@@ -40,7 +40,7 @@ def create_app(
         app.state.pipeline = Pipeline(app.state.repository, app.state.files, registry)
         yield
 
-    app = FastAPI(title="Fletchers document workbench", lifespan=lifespan)
+    app = FastAPI(title="MDIP — Document Ingestion Pipeline API", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

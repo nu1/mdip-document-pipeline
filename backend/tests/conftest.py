@@ -36,7 +36,7 @@ def scan_image():
     image = Image.new('RGB', (900, 1200), 'white')
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default(size=44)
-    draw.text((70, 180), 'FLETCHERS SCAN TEST', fill='black', font=font)
+    draw.text((70, 180), 'SCANNED INVOICE SAMPLE', fill='black', font=font)
     draw.text((70, 260), 'Invoice total 125 pounds', fill='black', font=font)
     stream = BytesIO()
     image.save(stream, format='PNG')
@@ -64,7 +64,7 @@ def mixed_pdf(scan_image):
 class MockOcr:
     method: Literal['mock_ocr'] = 'mock_ocr'
 
-    def __init__(self, available: bool = True, text: str = 'FLETCHERS SCAN TEST\nInvoice total 125 pounds'):
+    def __init__(self, available: bool = True, text: str = 'SCANNED INVOICE SAMPLE\nInvoice total 125 pounds'):
         self._available = available
         self._text = text
 

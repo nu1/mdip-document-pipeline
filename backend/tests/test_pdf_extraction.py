@@ -41,7 +41,7 @@ def test_pdf_extraction_with_mock_ocr(mixed_pdf, mock_ocr):
 
     assert result.blocks[1].source_location.page == 2
     assert result.blocks[1].extraction_method == 'mock_ocr'
-    assert 'FLETCHERS SCAN TEST' in result.blocks[1].text
+    assert 'SCANNED INVOICE SAMPLE' in result.blocks[1].text
 
     assert result.blocks[2].source_location.page == 3
     assert result.blocks[2].extraction_method == 'native_pdf'

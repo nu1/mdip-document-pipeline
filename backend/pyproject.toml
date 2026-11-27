@@ -1,7 +1,7 @@
 [project]
 name = "mdip-api"
 version = "0.1.0"
-description = "Backend service for monorepo"
+description = "Modular Document Ingestion Pipeline API (FastAPI, PDF/DOCX extraction, OCR, agent chunk API)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115,<1",

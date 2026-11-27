@@ -1,14 +1,40 @@
-# Fletchers AI · Document pipeline
+# MDIP · Document Ingestion Pipeline
 
-A local PDF/DOCX extraction app: upload documents, follow processing status, inspect ordered content and retrieve persisted results. No paid services are required.
+A full-stack React, TypeScript, and Python (FastAPI) document ingestion pipeline: upload PDF and DOCX files, track per-stage extraction progress, inspect ordered content with source provenance, and retrieve persisted chunks for LLM agents. No paid services are required.
 
-![Document Pipeline UI](docs/fe-preview.jpg)
+![Document Ingestion Pipeline UI](docs/fe-preview.jpg)
 
-- **Page-aware PDF extraction:** native inspection selects each page's route; Tesseract handles scanned pages, with explicit warnings for partial output.
+## Features
+
+- **Page-aware PDF extraction:** native inspection selects each page's route (`NATIVE`, `OCR`, `HYBRID`, `EMPTY_OR_UNKNOWN`); Tesseract handles scanned pages, with explicit warnings for partial output.
 - **DOCX structure:** headings, paragraphs and tables retain their body order.
-- **For Agents:** preview persisted, source-aware chunks through REST. No model is connected.
-- **Specialist fallback (mocked):** an optional provider boundary demonstrates escalation and response mapping, with clearly labelled fixture output.
-- **Format adapters:** PDF and DOCX share a validation/extraction contract, providing an extension point for additional formats. Only PDF and DOCX are enabled.
+- **For Agents:** preview persisted, source-aware chunks through REST and inspect ready-to-register tool schemas. No model is connected.
+- **Specialist fallback (mocked):** an optional provider boundary demonstrates page-level escalation and Pydantic response validation, with clearly labelled fixture output.
+- **Format adapters:** PDF and DOCX share a `DocumentAdapter` validation/extraction contract, providing an extension point for additional formats. Only PDF and DOCX are enabled.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  UI["React + Vite UI"] -->|"REST (/api proxy)"| API["FastAPI API"]
+  API --> Registry["AdapterRegistry"]
+  Registry --> Docx["DocxAdapter"]
+  Registry --> Pdf["PdfAdapter (Page Router)"]
+  Pdf -->|NATIVE / HYBRID| Native["PyMuPDF Text"]
+  Pdf -->|OCR| Ocr["Tesseract OCR"]
+  Pdf -->|EMPTY_OR_UNKNOWN| Fallback["Specialist Fallback (Optional Mock)"]
+  Docx --> Store["SQLite + Local Originals"]
+  Native --> Store
+  Ocr --> Store
+  Fallback --> Store
+  Store --> Agents["Agent Chunk REST Tools"]
+```
+
+## Tech Stack
+
+- **Backend:** Python 3.12+, FastAPI, Pydantic v2, PyMuPDF, Tesseract OCR (`pytesseract`), `python-docx`, SQLite
+- **Frontend:** React 19, TypeScript, Vite, Vitest, Testing Library, ESLint
+- **Tooling & Infra:** `uv`, Docker Compose, GitHub Actions CI
 
 ## Run
 
@@ -28,7 +54,7 @@ npm ci
 npm run dev
 ```
 
-Open the [app](http://127.0.0.1:5173). The frontend proxies requests to port 8000; [Swagger / API documentation](http://127.0.0.1:8000/docs) provides endpoints and request/response schemas.
+Once both services are running locally, open the app at `http://127.0.0.1:5173`. The frontend proxies `/api` requests to port 8000, and interactive Swagger / OpenAPI schema documentation is served at `http://127.0.0.1:8000/docs`.
 
 Docker includes Python 3.12 and Tesseract with English language data. Uploads and SQLite results persist in the `backend-data` volume. `docker compose down` retains this data; adding `--volumes` deletes it.
 
@@ -86,6 +112,8 @@ Tests use temporary storage and labelled mocks; no paid provider or Tesseract in
 - Background tasks are not durable; interrupted jobs fail on restart and require re-upload. Completed results persist.
 - Chunk retrieval is sequential; batch size does not guarantee a model token budget. There is no authentication or production queue.
 
----
+## License
 
-<sub>**Author:** Nuwan Narasinghe · [nuwan@devage.co.uk](mailto:nuwan@devage.co.uk) · [LinkedIn](https://www.linkedin.com/in/nuwan-nara) · [GitHub](https://github.com/nu1)</sub>
+Licensed under the [MIT License](LICENSE).
+
+---
